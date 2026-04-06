@@ -6,6 +6,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { formatCurrencyINR } from "@/lib/format"
 
 type BookingItem = {
   id: string
@@ -13,7 +14,7 @@ type BookingItem = {
   paymentStatus: string
   scheduleAt: string
   address: string
-  totalAmount: number
+  totalAmount: number | string
   service?: {
     title: string
   }
@@ -46,7 +47,7 @@ export function BookingList({ bookings }: { bookings: BookingItem[] }) {
             </div>
           </CardHeader>
           <CardContent className="text-sm font-medium">
-            INR {booking.totalAmount.toFixed(2)}
+            INR {formatCurrencyINR(booking.totalAmount)}
           </CardContent>
         </Card>
       ))}

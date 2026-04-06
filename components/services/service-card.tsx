@@ -8,6 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { formatCurrencyINR } from "@/lib/format"
 
 type ServiceCardProps = {
   service: {
@@ -16,7 +17,7 @@ type ServiceCardProps = {
     description: string
     category: string
     city: string
-    price: number
+    price: number | string
     durationMinutes: number
     provider?: {
       name?: string | null
@@ -41,7 +42,7 @@ export function ServiceCard({ service, onBook }: ServiceCardProps) {
         <p>Provider: {service.provider?.name ?? "Urban Clean Partner"}</p>
       </CardContent>
       <CardFooter className="items-center justify-between">
-        <p className="font-semibold">INR {service.price.toFixed(2)}</p>
+        <p className="font-semibold">INR {formatCurrencyINR(service.price)}</p>
         <Button onClick={() => onBook?.(service.id)}>Book now</Button>
       </CardFooter>
     </Card>

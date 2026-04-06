@@ -10,361 +10,455 @@ const adapter = new PrismaPg({
 
 const prisma = new PrismaClient({ adapter })
 
-const ids = {
-  customer: "seed-customer-1",
-  provider1: "seed-provider-1",
-  provider2: "seed-provider-2",
-  admin: "seed-admin-1",
-  service1: "seed-service-1",
-  service2: "seed-service-2",
-  service3: "seed-service-3",
-  booking1: "seed-booking-1",
-  booking2: "seed-booking-2",
-  payment1: "seed-payment-1",
-  review1: "seed-review-1",
-  providerProfile1: "seed-provider-profile-1",
-  providerProfile2: "seed-provider-profile-2",
-  notification1: "seed-notification-1",
-  notification2: "seed-notification-2",
-} as const
+const SEED_PREFIX = "mass-seed"
+const CUSTOMER_COUNT = 160
+const PROVIDER_COUNT = 45
+const SERVICE_PER_PROVIDER = 6
+const BOOKINGS_PER_CUSTOMER = 8
+const REVIEW_RATE = 0.6
+const PAYMENT_SUCCESS_RATE = 0.72
 
-async function upsertUsers() {
-  await prisma.user.upsert({
-    where: { email: "customer@urban-clean.demo" },
-    update: {
-      name: "Aarav Customer",
+const cities = [
+  "Bengaluru",
+  "Mumbai",
+  "Delhi",
+  "Hyderabad",
+  "Pune",
+  "Chennai",
+  "Kolkata",
+  "Ahmedabad",
+]
+
+const categories = [
+  "Deep Cleaning",
+  "Maintenance",
+  "Move Cleaning",
+  "Bathroom Cleaning",
+  "Kitchen Cleaning",
+  "Sofa Cleaning",
+  "Carpet Cleaning",
+]
+
+const areas = [
+  "Central",
+  "North",
+  "South",
+  "East",
+  "West",
+  "Urban Zone",
+  "Metro Belt",
+]
+
+function idFor(entity: string, index: number) {
+  return `${SEED_PREFIX}-${entity}-${index}`
+}
+
+function randomInt(min: number, max: number) {
+  return Math.floor(Math.random() * (max - min + 1)) + min
+}
+
+function randomFloat(min: number, max: number) {
+  return Number((Math.random() * (max - min) + min).toFixed(2))
+}
+
+function pick<T>(items: T[]) {
+  return items[randomInt(0, items.length - 1)]
+}
+
+function addDays(date: Date, days: number) {
+  const next = new Date(date)
+  next.setDate(next.getDate() + days)
+  return next
+}
+
+type SeedUser = {
+  id: string
+  email: string
+  name: string
+  role: "CUSTOMER" | "PROVIDER" | "ADMIN"
+}
+
+type SeedService = {
+  id: string
+  providerId: string
+  title: string
+  description: string
+  category: string
+  city: string
+  price: number
+  durationMinutes: number
+}
+
+type BookingStatus =
+  | "PENDING"
+  | "CONFIRMED"
+  | "IN_PROGRESS"
+  | "COMPLETED"
+  | "CANCELLED"
+
+type PaymentStatus = "PENDING" | "SUCCESS" | "FAILED" | "REFUNDED"
+
+function generateUsers() {
+  const customers: SeedUser[] = []
+  const providers: SeedUser[] = []
+
+  for (let i = 1; i <= CUSTOMER_COUNT; i += 1) {
+    customers.push({
+      id: idFor("customer", i),
+      email: `${SEED_PREFIX}.customer${i}@demo.local`,
+      name: `Customer ${i}`,
       role: "CUSTOMER",
-    },
-    create: {
-      id: ids.customer,
-      email: "customer@urban-clean.demo",
-      password: "seed-password",
-      name: "Aarav Customer",
-      role: "CUSTOMER",
-      emailVerified: true,
-    },
-  })
+    })
+  }
 
-  await prisma.user.upsert({
-    where: { email: "provider1@urban-clean.demo" },
-    update: {
-      name: "Maya Provider",
+  for (let i = 1; i <= PROVIDER_COUNT; i += 1) {
+    providers.push({
+      id: idFor("provider", i),
+      email: `${SEED_PREFIX}.provider${i}@demo.local`,
+      name: `Provider ${i}`,
       role: "PROVIDER",
-    },
-    create: {
-      id: ids.provider1,
-      email: "provider1@urban-clean.demo",
-      password: "seed-password",
-      name: "Maya Provider",
-      role: "PROVIDER",
-      emailVerified: true,
-    },
-  })
+    })
+  }
 
-  await prisma.user.upsert({
-    where: { email: "provider2@urban-clean.demo" },
-    update: {
-      name: "Rohan Provider",
-      role: "PROVIDER",
-    },
-    create: {
-      id: ids.provider2,
-      email: "provider2@urban-clean.demo",
-      password: "seed-password",
-      name: "Rohan Provider",
-      role: "PROVIDER",
-      emailVerified: true,
-    },
-  })
-
-  await prisma.user.upsert({
-    where: { email: "admin@urban-clean.demo" },
-    update: {
-      name: "Isha Admin",
+  const admins: SeedUser[] = [
+    {
+      id: idFor("admin", 1),
+      email: `${SEED_PREFIX}.admin1@demo.local`,
+      name: "Marketplace Admin",
       role: "ADMIN",
     },
-    create: {
-      id: ids.admin,
-      email: "admin@urban-clean.demo",
+  ]
+
+  return { customers, providers, admins }
+}
+
+function generateServices(providers: SeedUser[]) {
+  const services: SeedService[] = []
+  let idx = 1
+
+  for (const provider of providers) {
+    for (let s = 1; s <= SERVICE_PER_PROVIDER; s += 1) {
+      const category = pick(categories)
+      const city = pick(cities)
+
+      services.push({
+        id: idFor("service", idx),
+        providerId: provider.id,
+        title: `${category} Package ${s}`,
+        description: `${category} for apartments and homes with trained professionals.`,
+        category,
+        city,
+        price: randomInt(499, 4999),
+        durationMinutes: pick([60, 90, 120, 150, 180, 240]),
+      })
+
+      idx += 1
+    }
+  }
+
+  return services
+}
+
+async function resetExistingMassSeedData() {
+  await prisma.review.deleteMany({
+    where: { id: { startsWith: `${SEED_PREFIX}-` } },
+  })
+  await prisma.payment.deleteMany({
+    where: { id: { startsWith: `${SEED_PREFIX}-` } },
+  })
+  await prisma.booking.deleteMany({
+    where: { id: { startsWith: `${SEED_PREFIX}-` } },
+  })
+  await prisma.notification.deleteMany({
+    where: { id: { startsWith: `${SEED_PREFIX}-` } },
+  })
+  await prisma.service.deleteMany({
+    where: { id: { startsWith: `${SEED_PREFIX}-` } },
+  })
+  await prisma.providerProfile.deleteMany({
+    where: { id: { startsWith: `${SEED_PREFIX}-` } },
+  })
+  await prisma.user.deleteMany({
+    where: { id: { startsWith: `${SEED_PREFIX}-` } },
+  })
+}
+
+async function seedUsers(
+  customers: SeedUser[],
+  providers: SeedUser[],
+  admins: SeedUser[]
+) {
+  const all = [...customers, ...providers, ...admins]
+
+  await prisma.user.createMany({
+    data: all.map((user) => ({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
       password: "seed-password",
-      name: "Isha Admin",
-      role: "ADMIN",
       emailVerified: true,
-    },
+    })),
+    skipDuplicates: true,
+  })
+
+  await prisma.providerProfile.createMany({
+    data: providers.map((provider, index) => ({
+      id: idFor("provider-profile", index + 1),
+      userId: provider.id,
+      bio: `Professional cleaner with ${randomInt(2, 12)} years of field experience.`,
+      experience: randomInt(2, 12),
+      serviceArea: `${pick(cities)} ${pick(areas)}`,
+      averageRating: randomFloat(4.0, 4.9),
+      totalReviews: randomInt(20, 480),
+    })),
+    skipDuplicates: true,
   })
 }
 
-async function upsertProviderProfiles() {
-  await prisma.providerProfile.upsert({
-    where: { userId: ids.provider1 },
-    update: {
-      bio: "Specialist in deep cleaning and move-out cleaning.",
-      experience: 6,
-      serviceArea: "Bengaluru East",
-      averageRating: 4.8,
-      totalReviews: 1,
-    },
-    create: {
-      id: ids.providerProfile1,
-      userId: ids.provider1,
-      bio: "Specialist in deep cleaning and move-out cleaning.",
-      experience: 6,
-      serviceArea: "Bengaluru East",
-      averageRating: 4.8,
-      totalReviews: 1,
-    },
-  })
-
-  await prisma.providerProfile.upsert({
-    where: { userId: ids.provider2 },
-    update: {
-      bio: "Reliable recurring home cleaning with eco-safe products.",
-      experience: 4,
-      serviceArea: "Bengaluru South",
-      averageRating: 0,
-      totalReviews: 0,
-    },
-    create: {
-      id: ids.providerProfile2,
-      userId: ids.provider2,
-      bio: "Reliable recurring home cleaning with eco-safe products.",
-      experience: 4,
-      serviceArea: "Bengaluru South",
-      averageRating: 0,
-      totalReviews: 0,
-    },
+async function seedServices(services: SeedService[]) {
+  await prisma.service.createMany({
+    data: services.map((service) => ({
+      id: service.id,
+      providerId: service.providerId,
+      title: service.title,
+      description: service.description,
+      category: service.category,
+      city: service.city,
+      price: service.price,
+      durationMinutes: service.durationMinutes,
+      isActive: true,
+    })),
+    skipDuplicates: true,
   })
 }
 
-async function upsertServices() {
-  await prisma.service.upsert({
-    where: { id: ids.service1 },
-    update: {
-      providerId: ids.provider1,
-      title: "Deep Home Cleaning",
-      description:
-        "Complete deep cleaning for kitchen, bathrooms, and living spaces.",
-      category: "Deep Cleaning",
-      city: "Bengaluru",
-      price: 2499,
-      durationMinutes: 240,
-      isActive: true,
-    },
-    create: {
-      id: ids.service1,
-      providerId: ids.provider1,
-      title: "Deep Home Cleaning",
-      description:
-        "Complete deep cleaning for kitchen, bathrooms, and living spaces.",
-      category: "Deep Cleaning",
-      city: "Bengaluru",
-      price: 2499,
-      durationMinutes: 240,
-      isActive: true,
-    },
-  })
-
-  await prisma.service.upsert({
-    where: { id: ids.service2 },
-    update: {
-      providerId: ids.provider2,
-      title: "Weekly Maintenance Cleaning",
-      description: "Weekly upkeep cleaning for apartments and small homes.",
-      category: "Maintenance",
-      city: "Bengaluru",
-      price: 899,
-      durationMinutes: 90,
-      isActive: true,
-    },
-    create: {
-      id: ids.service2,
-      providerId: ids.provider2,
-      title: "Weekly Maintenance Cleaning",
-      description: "Weekly upkeep cleaning for apartments and small homes.",
-      category: "Maintenance",
-      city: "Bengaluru",
-      price: 899,
-      durationMinutes: 90,
-      isActive: true,
-    },
-  })
-
-  await prisma.service.upsert({
-    where: { id: ids.service3 },
-    update: {
-      providerId: ids.provider1,
-      title: "Move-in/Move-out Cleaning",
-      description:
-        "Intensive pre-move cleaning with appliance and cabinet detailing.",
-      category: "Move Cleaning",
-      city: "Bengaluru",
-      price: 3299,
-      durationMinutes: 300,
-      isActive: true,
-    },
-    create: {
-      id: ids.service3,
-      providerId: ids.provider1,
-      title: "Move-in/Move-out Cleaning",
-      description:
-        "Intensive pre-move cleaning with appliance and cabinet detailing.",
-      category: "Move Cleaning",
-      city: "Bengaluru",
-      price: 3299,
-      durationMinutes: 300,
-      isActive: true,
-    },
-  })
+type CreatedBooking = {
+  id: string
+  providerId: string
+  customerId: string
+  serviceId: string
+  totalAmount: number
+  status: BookingStatus
+  paymentStatus: PaymentStatus
 }
 
-async function upsertBookingsAndPayments() {
-  await prisma.booking.upsert({
-    where: { id: ids.booking1 },
-    update: {
-      serviceId: ids.service1,
-      customerId: ids.customer,
-      providerId: ids.provider1,
-      scheduleAt: new Date("2026-04-10T09:00:00.000Z"),
-      address: "Indiranagar, Bengaluru",
-      notes: "Please bring vacuum cleaner.",
-      status: "COMPLETED",
-      paymentStatus: "SUCCESS",
-      totalAmount: 2499,
-    },
-    create: {
-      id: ids.booking1,
-      serviceId: ids.service1,
-      customerId: ids.customer,
-      providerId: ids.provider1,
-      scheduleAt: new Date("2026-04-10T09:00:00.000Z"),
-      address: "Indiranagar, Bengaluru",
-      notes: "Please bring vacuum cleaner.",
-      status: "COMPLETED",
-      paymentStatus: "SUCCESS",
-      totalAmount: 2499,
-    },
+async function seedBookingsPaymentsReviewsAndNotifications(
+  customers: SeedUser[],
+  providers: SeedUser[],
+  services: SeedService[]
+) {
+  const bookingsToCreate: {
+    id: string
+    serviceId: string
+    customerId: string
+    providerId: string
+    scheduleAt: Date
+    address: string
+    notes: string
+    status: BookingStatus
+    paymentStatus: PaymentStatus
+    totalAmount: number
+  }[] = []
+
+  const createdBookingRefs: CreatedBooking[] = []
+
+  let bookingIndex = 1
+  const now = new Date()
+
+  for (const customer of customers) {
+    for (let i = 0; i < BOOKINGS_PER_CUSTOMER; i += 1) {
+      const service = pick(services)
+
+      const statusPool: BookingStatus[] = [
+        "PENDING",
+        "CONFIRMED",
+        "IN_PROGRESS",
+        "COMPLETED",
+        "CANCELLED",
+      ]
+
+      const status = pick(statusPool)
+
+      let paymentStatus: PaymentStatus = "PENDING"
+      if (
+        status === "COMPLETED" ||
+        status === "IN_PROGRESS" ||
+        status === "CONFIRMED"
+      ) {
+        paymentStatus =
+          Math.random() < PAYMENT_SUCCESS_RATE ? "SUCCESS" : "FAILED"
+      }
+      if (status === "CANCELLED") {
+        paymentStatus = "PENDING"
+      }
+
+      const id = idFor("booking", bookingIndex)
+      const scheduleAt = addDays(now, randomInt(-40, 60))
+
+      bookingsToCreate.push({
+        id,
+        serviceId: service.id,
+        customerId: customer.id,
+        providerId: service.providerId,
+        scheduleAt,
+        address: `${randomInt(10, 999)}, ${pick(areas)}, ${service.city}`,
+        notes: "Seeded booking generated for load testing and UI demos.",
+        status,
+        paymentStatus,
+        totalAmount: service.price,
+      })
+
+      createdBookingRefs.push({
+        id,
+        providerId: service.providerId,
+        customerId: customer.id,
+        serviceId: service.id,
+        totalAmount: service.price,
+        status,
+        paymentStatus,
+      })
+
+      bookingIndex += 1
+    }
+  }
+
+  await prisma.booking.createMany({
+    data: bookingsToCreate,
+    skipDuplicates: true,
   })
 
-  await prisma.booking.upsert({
-    where: { id: ids.booking2 },
-    update: {
-      serviceId: ids.service2,
-      customerId: ids.customer,
-      providerId: ids.provider2,
-      scheduleAt: new Date("2026-04-15T11:30:00.000Z"),
-      address: "HSR Layout, Bengaluru",
-      notes: "Parking available in basement.",
-      status: "CONFIRMED",
-      paymentStatus: "PENDING",
-      totalAmount: 899,
-    },
-    create: {
-      id: ids.booking2,
-      serviceId: ids.service2,
-      customerId: ids.customer,
-      providerId: ids.provider2,
-      scheduleAt: new Date("2026-04-15T11:30:00.000Z"),
-      address: "HSR Layout, Bengaluru",
-      notes: "Parking available in basement.",
-      status: "CONFIRMED",
-      paymentStatus: "PENDING",
-      totalAmount: 899,
-    },
-  })
-
-  await prisma.payment.upsert({
-    where: { bookingId: ids.booking1 },
-    update: {
-      customerId: ids.customer,
-      providerId: ids.provider1,
-      amount: 2499,
-      status: "SUCCESS",
-      transactionRef: "seed-txn-booking-1",
+  const payments = createdBookingRefs
+    .filter((booking) => booking.paymentStatus !== "PENDING")
+    .map((booking, index) => ({
+      id: idFor("payment", index + 1),
+      bookingId: booking.id,
+      customerId: booking.customerId,
+      providerId: booking.providerId,
+      amount: booking.totalAmount,
+      status: booking.paymentStatus,
+      transactionRef: `${SEED_PREFIX}-txn-${booking.id}`,
       method: "mock",
-    },
-    create: {
-      id: ids.payment1,
-      bookingId: ids.booking1,
-      customerId: ids.customer,
-      providerId: ids.provider1,
-      amount: 2499,
-      status: "SUCCESS",
-      transactionRef: "seed-txn-booking-1",
-      method: "mock",
-    },
-  })
-}
+    }))
 
-async function upsertReviewsAndNotifications() {
-  await prisma.review.upsert({
-    where: { bookingId: ids.booking1 },
-    update: {
-      serviceId: ids.service1,
-      customerId: ids.customer,
-      providerId: ids.provider1,
-      rating: 5,
-      comment: "Excellent service and punctual provider.",
+  await prisma.payment.createMany({
+    data: payments,
+    skipDuplicates: true,
+  })
+
+  const completedBookings = createdBookingRefs.filter(
+    (booking) => booking.status === "COMPLETED"
+  )
+
+  const reviews = completedBookings
+    .filter(() => Math.random() < REVIEW_RATE)
+    .map((booking, index) => ({
+      id: idFor("review", index + 1),
+      bookingId: booking.id,
+      serviceId: booking.serviceId,
+      customerId: booking.customerId,
+      providerId: booking.providerId,
+      rating: randomInt(3, 5),
+      comment: "Seeded review: service was professional and on time.",
       isHidden: false,
-    },
-    create: {
-      id: ids.review1,
-      bookingId: ids.booking1,
-      serviceId: ids.service1,
-      customerId: ids.customer,
-      providerId: ids.provider1,
-      rating: 5,
-      comment: "Excellent service and punctual provider.",
-      isHidden: false,
-    },
+    }))
+
+  await prisma.review.createMany({
+    data: reviews,
+    skipDuplicates: true,
   })
 
-  await prisma.notification.upsert({
-    where: { id: ids.notification1 },
-    update: {
-      userId: ids.customer,
-      title: "Booking confirmed",
-      message: "Your booking for Weekly Maintenance Cleaning is confirmed.",
+  const notifications: {
+    id: string
+    userId: string
+    title: string
+    message: string
+    type: "BOOKING" | "PAYMENT" | "REVIEW" | "SYSTEM"
+    isRead: boolean
+  }[] = []
+
+  let notificationIndex = 1
+
+  for (const booking of createdBookingRefs.slice(0, 1000)) {
+    notifications.push({
+      id: idFor("notification", notificationIndex),
+      userId: booking.customerId,
+      title: "Booking status updated",
+      message: `Booking ${booking.id} status: ${booking.status}`,
       type: "BOOKING",
-      isRead: false,
-    },
-    create: {
-      id: ids.notification1,
-      userId: ids.customer,
-      title: "Booking confirmed",
-      message: "Your booking for Weekly Maintenance Cleaning is confirmed.",
+      isRead: Math.random() < 0.4,
+    })
+    notificationIndex += 1
+
+    notifications.push({
+      id: idFor("notification", notificationIndex),
+      userId: booking.providerId,
+      title: "New booking activity",
+      message: `A booking linked to your service is ${booking.status.toLowerCase()}.`,
       type: "BOOKING",
+      isRead: Math.random() < 0.5,
+    })
+    notificationIndex += 1
+  }
+
+  for (const provider of providers.slice(0, 30)) {
+    notifications.push({
+      id: idFor("notification", notificationIndex),
+      userId: provider.id,
+      title: "Weekly performance digest",
+      message: "You have new customer interactions this week.",
+      type: "SYSTEM",
       isRead: false,
-    },
+    })
+    notificationIndex += 1
+  }
+
+  await prisma.notification.createMany({
+    data: notifications,
+    skipDuplicates: true,
   })
 
-  await prisma.notification.upsert({
-    where: { id: ids.notification2 },
-    update: {
-      userId: ids.provider1,
-      title: "New 5-star review",
-      message: "You received a new 5-star review.",
-      type: "REVIEW",
-      isRead: false,
-    },
-    create: {
-      id: ids.notification2,
-      userId: ids.provider1,
-      title: "New 5-star review",
-      message: "You received a new 5-star review.",
-      type: "REVIEW",
-      isRead: false,
-    },
-  })
+  return {
+    bookingCount: bookingsToCreate.length,
+    paymentCount: payments.length,
+    reviewCount: reviews.length,
+    notificationCount: notifications.length,
+  }
 }
 
 async function main() {
-  await upsertUsers()
-  await upsertProviderProfiles()
-  await upsertServices()
-  await upsertBookingsAndPayments()
-  await upsertReviewsAndNotifications()
+  console.log("Starting massive seed...")
+  await resetExistingMassSeedData()
 
-  console.log("Seed data inserted/updated successfully")
+  const { customers, providers, admins } = generateUsers()
+  const services = generateServices(providers)
+
+  await seedUsers(customers, providers, admins)
+  await seedServices(services)
+  const stats = await seedBookingsPaymentsReviewsAndNotifications(
+    customers,
+    providers,
+    services
+  )
+
+  console.log("Massive seed completed")
+  console.log(
+    JSON.stringify(
+      {
+        users: customers.length + providers.length + admins.length,
+        customers: customers.length,
+        providers: providers.length,
+        admins: admins.length,
+        services: services.length,
+        bookings: stats.bookingCount,
+        payments: stats.paymentCount,
+        reviews: stats.reviewCount,
+        notifications: stats.notificationCount,
+      },
+      null,
+      2
+    )
+  )
 }
 
 main()
