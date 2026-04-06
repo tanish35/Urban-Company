@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 
 import { Button } from "@/components/ui/button"
@@ -71,9 +72,11 @@ export function AuthForm({ mode }: AuthFormProps) {
   }
 
   return (
-    <Card className="mx-auto w-full max-w-md">
+    <Card className="mx-auto w-full max-w-md border-border/60 shadow-sm">
       <CardHeader>
-        <CardTitle>{mode === "login" ? "Sign in" : "Create account"}</CardTitle>
+        <CardTitle className="text-2xl tracking-tight">
+          {mode === "login" ? "Sign in" : "Create account"}
+        </CardTitle>
         <CardDescription>
           {mode === "login"
             ? "Access your Urban Clean portal."
@@ -135,6 +138,17 @@ export function AuthForm({ mode }: AuthFormProps) {
                 ? "Sign in"
                 : "Create account"}
           </Button>
+          <p className="text-center text-sm text-muted-foreground">
+            {mode === "login"
+              ? "New to Urban Clean?"
+              : "Already have an account?"}{" "}
+            <Link
+              href={mode === "login" ? "/register" : "/login"}
+              className="text-foreground underline-offset-4 hover:underline"
+            >
+              {mode === "login" ? "Create account" : "Sign in"}
+            </Link>
+          </p>
         </form>
       </CardContent>
     </Card>

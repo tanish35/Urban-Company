@@ -1,22 +1,37 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { cn } from "@/lib/utils"
 
 export type StatItem = {
   label: string
   value: string | number
+  tone?: "default" | "accent"
+  hint?: string
 }
 
 export function StatsGrid({ stats }: { stats: StatItem[] }) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       {stats.map((stat) => (
-        <Card key={stat.label}>
-          <CardHeader>
-            <CardTitle className="text-sm text-muted-foreground">
+        <Card
+          key={stat.label}
+          className={cn(
+            "relative overflow-hidden border-border/60",
+            stat.tone === "accent" && "border-primary/30 bg-primary/5"
+          )}
+        >
+          <div className="pointer-events-none absolute -top-6 -right-6 size-20 rounded-full bg-primary/10" />
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs tracking-wide text-muted-foreground uppercase">
               {stat.label}
             </CardTitle>
           </CardHeader>
-          <CardContent className="text-2xl font-semibold">
-            {stat.value}
+          <CardContent className="space-y-1">
+            <p className="text-3xl font-semibold tracking-tight">
+              {stat.value}
+            </p>
+            {stat.hint ? (
+              <p className="text-xs text-muted-foreground">{stat.hint}</p>
+            ) : null}
           </CardContent>
         </Card>
       ))}

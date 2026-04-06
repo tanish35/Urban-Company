@@ -2,13 +2,20 @@
 
 import * as React from "react"
 
-import { SiteShell } from "@/components/layout/site-shell"
 import { BookingList } from "@/components/bookings/booking-list"
 import { ReviewForm } from "@/components/reviews/review-form"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { SiteShell } from "@/components/layout/site-shell"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Button } from "@/components/ui/button"
 
 type BookingItem = {
   id: string
@@ -16,7 +23,7 @@ type BookingItem = {
   paymentStatus: string
   scheduleAt: string
   address: string
-  totalAmount: number
+  totalAmount: number | string
   service?: {
     title: string
   }
@@ -28,6 +35,7 @@ export default function BookingsPage() {
   const [bookingIdForReview, setBookingIdForReview] = React.useState("")
   const [bookingIdForPayment, setBookingIdForPayment] = React.useState("")
   const [message, setMessage] = React.useState<string | null>(null)
+  const [loading, setLoading] = React.useState(false)
 
   const query = React.useMemo(() => {
     const params = new URLSearchParams()
@@ -36,14 +44,14 @@ export default function BookingsPage() {
   }, [status])
 
   const loadBookings = React.useCallback(async () => {
+    setLoading(true)
     const response = await fetch(`/api/bookings${query ? `?${query}` : ""}`)
 
-    if (!response.ok) {
-      return
+    if (response.ok) {
+      const payload = (await response.json()) as { data: BookingItem[] }
+      setBookings(payload.data)
     }
-
-    const payload = (await response.json()) as { data: BookingItem[] }
-    setBookings(payload.data)
+    setLoading(false)
   }, [query])
 
   React.useEffect(() => {
@@ -75,18 +83,29 @@ export default function BookingsPage() {
   return (
     <SiteShell>
       <section className="space-y-6">
-        <div className="space-y-2">
-          <h1 className="font-heading text-3xl font-semibold tracking-tight">
-            Bookings
-          </h1>
-          <p className="text-muted-foreground">
-            Track bookings, submit reviews, and complete mock payments.
-          </p>
+        <div className="relative overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-br from-background to-muted/40 p-6">
+          <div className="pointer-events-none absolute -top-14 -right-10 size-40 rounded-full bg-chart-2/10 blur-2xl" />
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="secondary">Bookings Hub</Badge>
+              <Badge variant="outline">{bookings.length} items</Badge>
+            </div>
+            <h1 className="font-heading text-3xl font-semibold tracking-tight sm:text-4xl">
+              Track bookings with less friction
+            </h1>
+            <p className="max-w-3xl text-sm text-muted-foreground sm:text-base">
+              Filter status, pay pending bookings, and submit reviews from one
+              optimized workflow.
+            </p>
+          </div>
         </div>
 
-        <Card>
+        <Card className="border-border/60">
           <CardHeader>
             <CardTitle className="text-lg">Filter bookings</CardTitle>
+            <CardDescription>
+              Use status tags like PENDING, CONFIRMED, or COMPLETED.
+            </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-2 md:max-w-xs">
             <Label htmlFor="status">Status</Label>
@@ -99,12 +118,23 @@ export default function BookingsPage() {
           </CardContent>
         </Card>
 
-        <BookingList bookings={bookings} />
+        {loading ? (
+          <Card className="border-border/60">
+            <CardContent className="text-sm text-muted-foreground">
+              Loading bookings...
+            </CardContent>
+          </Card>
+        ) : (
+          <BookingList bookings={bookings} />
+        )}
 
         <div className="grid gap-4 lg:grid-cols-2">
-          <Card>
+          <Card className="border-border/60">
             <CardHeader>
-              <CardTitle className="text-lg">Pay for booking</CardTitle>
+              <CardTitle className="text-lg">Pay a booking</CardTitle>
+              <CardDescription>
+                Enter booking id and complete a mock payment instantly.
+              </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4">
               <div className="grid gap-2">
@@ -123,9 +153,13 @@ export default function BookingsPage() {
               ) : null}
             </CardContent>
           </Card>
-          <Card>
+
+          <Card className="border-border/60">
             <CardHeader>
               <CardTitle className="text-lg">Submit review</CardTitle>
+              <CardDescription>
+                Share feedback after service completion.
+              </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4">
               <div className="grid gap-2">
@@ -140,7 +174,11 @@ export default function BookingsPage() {
               </div>
               {bookingIdForReview ? (
                 <ReviewForm bookingId={bookingIdForReview} />
-              ) : null}
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Enter a booking id to open the review form.
+                </p>
+              )}
             </CardContent>
           </Card>
         </div>

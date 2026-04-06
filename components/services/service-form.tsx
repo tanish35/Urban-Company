@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useRouter } from "next/navigation"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -8,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 
 export function ServiceForm() {
+  const router = useRouter()
   const [title, setTitle] = React.useState("")
   const [description, setDescription] = React.useState("")
   const [category, setCategory] = React.useState("")
@@ -52,6 +54,7 @@ export function ServiceForm() {
     setDurationMinutes(60)
     setCity("")
     setMessage("Service created")
+    router.refresh()
   }
 
   return (

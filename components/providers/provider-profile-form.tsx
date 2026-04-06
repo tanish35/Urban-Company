@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useRouter } from "next/navigation"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -18,6 +19,7 @@ type ProviderProfileFormProps = {
 export function ProviderProfileForm({
   initialValues,
 }: ProviderProfileFormProps) {
+  const router = useRouter()
   const [bio, setBio] = React.useState(initialValues?.bio ?? "")
   const [experience, setExperience] = React.useState(
     initialValues?.experience ?? 0
@@ -50,6 +52,7 @@ export function ProviderProfileForm({
     }
 
     setMessage("Provider profile saved")
+    router.refresh()
   }
 
   return (
