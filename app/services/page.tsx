@@ -65,14 +65,32 @@ export default function ServicesPage() {
   const [selectedServiceId, setSelectedServiceId] = React.useState<
     string | null
   >(null)
+  const bookingPanelRef = React.useRef<HTMLDivElement>(null)
+
+  const handleServiceSelect = React.useCallback((serviceId: string) => {
+    console.log("Setting selectedServiceId:", serviceId)
+    setSelectedServiceId(serviceId)
+    setTimeout(() => {
+      bookingPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+    }, 50)
+  }, [])
   const [search, setSearch] = React.useState("")
   const [city, setCity] = React.useState("ALL")
   const [category, setCategory] = React.useState("ALL")
   const [loading, setLoading] = React.useState(true)
 
-  const selectedService = services.find(
-    (service) => service.id === selectedServiceId
-  )
+  const selectedService = React.useMemo(() => {
+    const found = services.find((service) => service.id === selectedServiceId)
+    console.log(
+      "Finding service:",
+      selectedServiceId,
+      "Found:",
+      found,
+      "Services count:",
+      services.length
+    )
+    return found
+  }, [services, selectedServiceId])
 
   const query = React.useMemo(() => {
     const params = new URLSearchParams()
@@ -115,7 +133,7 @@ export default function ServicesPage() {
           </div>
         </div>
 
-        <Card className="border-border/60 bg-background/50 backdrop-blur-md shadow-sm">
+        <Card className="border-border/60 bg-background/50 shadow-sm backdrop-blur-md">
           <CardHeader>
             <CardTitle className="text-lg">Smart filters</CardTitle>
             <CardDescription>
@@ -141,7 +159,9 @@ export default function ServicesPage() {
                 </SelectTrigger>
                 <SelectContent>
                   {CITIES.map((c) => (
-                    <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                    <SelectItem key={c.value} value={c.value}>
+                      {c.label}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -154,7 +174,9 @@ export default function ServicesPage() {
                 </SelectTrigger>
                 <SelectContent>
                   {CATEGORIES.map((c) => (
-                    <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                    <SelectItem key={c.value} value={c.value}>
+                      {c.label}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -166,7 +188,7 @@ export default function ServicesPage() {
           <div className="grid gap-4 xl:col-span-2">
             {loading ? (
               <Card className="border-border/60">
-                <CardContent className="py-8 text-center text-sm text-muted-foreground animate-pulse">
+                <CardContent className="animate-pulse py-8 text-center text-sm text-muted-foreground">
                   Loading services...
                 </CardContent>
               </Card>
@@ -176,14 +198,16 @@ export default function ServicesPage() {
               <ServiceCard
                 key={service.id}
                 service={service}
-                onBook={setSelectedServiceId}
+                onBook={handleServiceSelect}
               />
             ))}
 
             {!loading && services.length === 0 ? (
-              <Card className="border-dashed border-2 bg-transparent shadow-none">
+              <Card className="border-2 border-dashed bg-transparent shadow-none">
                 <CardContent className="flex flex-col items-center justify-center gap-3 py-10 text-muted-foreground">
-                  <span className="text-lg font-medium text-foreground">No services match your filters</span>
+                  <span className="text-lg font-medium text-foreground">
+                    No services match your filters
+                  </span>
                   <span>Try different keywords or reset the filters.</span>
                   <Button
                     size="sm"
@@ -201,8 +225,8 @@ export default function ServicesPage() {
             ) : null}
           </div>
 
-          <div className="space-y-4">
-            <Card className="border-border/60 bg-background/50 backdrop-blur-md shadow-sm sticky top-20">
+          <div className="space-y-4" ref={bookingPanelRef}>
+            <Card className="sticky top-20 border-border/60 bg-background/50 shadow-sm backdrop-blur-md">
               <CardHeader>
                 <CardTitle className="text-lg">Quick booking</CardTitle>
                 <CardDescription>
@@ -221,7 +245,9 @@ export default function ServicesPage() {
                   />
                 ) : (
                   <div className="flex flex-col items-center justify-center gap-2 py-6 text-center">
-                    <div className="size-12 rounded-full bg-muted/50 flex items-center justify-center text-2xl">📋</div>
+                    <div className="flex size-12 items-center justify-center rounded-full bg-muted/50 text-2xl">
+                      📋
+                    </div>
                     <p className="text-sm text-muted-foreground">
                       Pick any service and it will appear here.
                     </p>
@@ -230,7 +256,7 @@ export default function ServicesPage() {
               </CardContent>
             </Card>
 
-            <Card className="border-border/60 bg-background/50 backdrop-blur-md shadow-sm">
+            <Card className="border-border/60 bg-background/50 shadow-sm backdrop-blur-md">
               <CardHeader>
                 <CardTitle className="text-lg">Provider shortcut</CardTitle>
                 <CardDescription>
